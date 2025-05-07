@@ -32,14 +32,39 @@ class GameState {
   /// History of moves for undo functionality
   final List<Move> moveHistory;
 
+  /// Par (optimal) number of moves for this level
+  final int parMoveCount;
+
+  /// Whether a hint is currently active
+  final bool hintActive;
+
+  /// The tubes suggested by the hint (from, to)
+  final (int, int) hintMove;
+
   /// Whether the game is complete (all tubes sorted)
   bool get isGameComplete => tubes.every((tube) => tube.isComplete());
+
+  /// Get star rating based on moves compared to par
+  int get starRating {
+    if (!isGameComplete) return 0;
+
+    if (moveCount <= parMoveCount) {
+      return 3;
+    } else if (moveCount <= parMoveCount * 1.5) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
 
   GameState({
     required this.tubes,
     this.selectedTubeIndex = -1,
     this.moveCount = 0,
     List<Move>? moveHistory,
+    this.parMoveCount = 0,
+    this.hintActive = false,
+    this.hintMove = (-1, -1),
   }) : this.moveHistory = moveHistory ?? [];
 
   /// Creates a copy of the current game state with optional changes
@@ -48,6 +73,9 @@ class GameState {
     int? selectedTubeIndex,
     int? moveCount,
     List<Move>? moveHistory,
+    int? parMoveCount,
+    bool? hintActive,
+    (int, int)? hintMove,
   }) {
     return GameState(
       tubes:
@@ -56,7 +84,20 @@ class GameState {
       selectedTubeIndex: selectedTubeIndex ?? this.selectedTubeIndex,
       moveCount: moveCount ?? this.moveCount,
       moveHistory: moveHistory ?? List.from(this.moveHistory),
+      parMoveCount: parMoveCount ?? this.parMoveCount,
+      hintActive: hintActive ?? this.hintActive,
+      hintMove: hintMove ?? this.hintMove,
     );
+  }
+
+  /// Activates a hint
+  GameState activateHint((int, int) suggestedMove) {
+    return copyWith(hintActive: true, hintMove: suggestedMove);
+  }
+
+  /// Clears the active hint
+  GameState clearHint() {
+    return copyWith(hintActive: false, hintMove: (-1, -1));
   }
 
   /// Checks if a move from one tube to another is valid
@@ -115,6 +156,8 @@ class GameState {
       selectedTubeIndex: -1, // Deselect after move
       moveCount: moveCount + 1,
       moveHistory: newMoveHistory,
+      hintActive: false, // Clear any active hint
+      hintMove: (-1, -1),
     );
   }
 
@@ -149,6 +192,8 @@ class GameState {
       selectedTubeIndex: -1,
       moveCount: moveCount - 1,
       moveHistory: newMoveHistory,
+      hintActive: false, // Clear any active hint
+      hintMove: (-1, -1),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/color_tube.dart';
 import '../data/game_state.dart';
 import 'level_manager.dart';
+import 'hint_system.dart';
 
 class ColorSortGame extends ChangeNotifier {
   // Current game state
@@ -19,6 +20,24 @@ class ColorSortGame extends ChangeNotifier {
   // Is there a move animation playing?
   bool _isAnimating = false;
 
+  // Maximum number of hints per level
+  final int _maxHintsPerLevel = 3;
+
+  // Number of hints used in current level
+  int _hintsUsed = 0;
+
+  // Tutorial completed status
+  bool _tutorialCompleted = false;
+
+  // Selected theme
+  int _selectedTheme = 0;
+
+  // Available themes
+  final List<String> _themeNames = ['Classic', 'Ocean', 'Neon', 'Pastel'];
+
+  // Level statistics tracking
+  Map<int, LevelStats> _levelStats = {};
+
   // Getters
   GameState get gameState => _gameState;
   int get currentLevel => _currentLevel;
@@ -28,6 +47,33 @@ class ColorSortGame extends ChangeNotifier {
   int get moveCount => _gameState.moveCount;
   int get selectedTubeIndex => _gameState.selectedTubeIndex;
   bool get isGameComplete => _gameState.isGameComplete;
+  int get parMoveCount => _gameState.parMoveCount;
+  int get hintsRemaining => _maxHintsPerLevel - _hintsUsed;
+  bool get tutorialCompleted => _tutorialCompleted;
+  int get selectedTheme => _selectedTheme;
+  List<String> get themeNames => _themeNames;
+  bool get canUseHint => _hintsUsed < _maxHintsPerLevel;
+  bool get hintActive => _gameState.hintActive;
+  (int, int) get hintMove => _gameState.hintMove;
+
+  // Get star rating for current level
+  int get starRating => _gameState.starRating;
+
+  // Get star rating for a specific level
+  int getStarRatingForLevel(int level) {
+    if (_levelStats.containsKey(level)) {
+      return _levelStats[level]!.starRating;
+    }
+    return 0;
+  }
+
+  // Get best move count for a specific level
+  int getBestMoveCountForLevel(int level) {
+    if (_levelStats.containsKey(level)) {
+      return _levelStats[level]!.bestMoveCount;
+    }
+    return 0;
+  }
 
   // Initialize with stored progress
   Future<void> initialize() async {
@@ -40,6 +86,21 @@ class ColorSortGame extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _currentLevel = prefs.getInt('currentLevel') ?? 1;
     _highestUnlockedLevel = prefs.getInt('highestUnlockedLevel') ?? 1;
+    _tutorialCompleted = prefs.getBool('tutorialCompleted') ?? false;
+    _selectedTheme = prefs.getInt('selectedTheme') ?? 0;
+
+    // Load level statistics
+    for (int i = 1; i <= LevelManager.totalLevels; i++) {
+      int bestMoves = prefs.getInt('bestMoves_$i') ?? 0;
+      int starRating = prefs.getInt('starRating_$i') ?? 0;
+
+      if (bestMoves > 0) {
+        _levelStats[i] = LevelStats(
+          bestMoveCount: bestMoves,
+          starRating: starRating,
+        );
+      }
+    }
   }
 
   // Save progress
@@ -47,6 +108,14 @@ class ColorSortGame extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('currentLevel', _currentLevel);
     await prefs.setInt('highestUnlockedLevel', _highestUnlockedLevel);
+    await prefs.setBool('tutorialCompleted', _tutorialCompleted);
+    await prefs.setInt('selectedTheme', _selectedTheme);
+
+    // Save level statistics
+    _levelStats.forEach((level, stats) {
+      prefs.setInt('bestMoves_$level', stats.bestMoveCount);
+      prefs.setInt('starRating_$level', stats.starRating);
+    });
   }
 
   // Load a specific level
@@ -58,6 +127,7 @@ class ColorSortGame extends ChangeNotifier {
     _currentLevel = level;
     _gameState = LevelManager.getLevel(level);
     _isAnimating = false;
+    _hintsUsed = 0;
     notifyListeners();
 
     _saveProgress();
@@ -72,12 +142,20 @@ class ColorSortGame extends ChangeNotifier {
     if (_gameState.selectedTubeIndex == -1) {
       // No tube selected yet
       if (!_gameState.tubes[index].isEmpty()) {
-        _gameState = _gameState.copyWith(selectedTubeIndex: index);
+        _gameState = _gameState.copyWith(
+          selectedTubeIndex: index,
+          hintActive: false,
+          hintMove: (-1, -1),
+        );
         notifyListeners();
       }
     } else if (_gameState.selectedTubeIndex == index) {
       // Deselect the current tube
-      _gameState = _gameState.copyWith(selectedTubeIndex: -1);
+      _gameState = _gameState.copyWith(
+        selectedTubeIndex: -1,
+        hintActive: false,
+        hintMove: (-1, -1),
+      );
       notifyListeners();
     } else {
       // Attempt to move from selected tube to this tube
@@ -86,9 +164,17 @@ class ColorSortGame extends ChangeNotifier {
       } else {
         // Change selection if can't move
         if (!_gameState.tubes[index].isEmpty()) {
-          _gameState = _gameState.copyWith(selectedTubeIndex: index);
+          _gameState = _gameState.copyWith(
+            selectedTubeIndex: index,
+            hintActive: false,
+            hintMove: (-1, -1),
+          );
         } else {
-          _gameState = _gameState.copyWith(selectedTubeIndex: -1);
+          _gameState = _gameState.copyWith(
+            selectedTubeIndex: -1,
+            hintActive: false,
+            hintMove: (-1, -1),
+          );
         }
         notifyListeners();
       }
@@ -121,12 +207,50 @@ class ColorSortGame extends ChangeNotifier {
     }
   }
 
+  // Show a hint
+  void showHint() {
+    if (_isAnimating ||
+        _gameState.isGameComplete ||
+        _hintsUsed >= _maxHintsPerLevel) {
+      return;
+    }
+
+    // Find the best move
+    (int fromTube, int toTube) bestMove = HintSystem.findBestMove(_gameState);
+
+    if (bestMove.$1 != -1 && bestMove.$2 != -1) {
+      _gameState = _gameState.activateHint(bestMove);
+      _hintsUsed++;
+      notifyListeners();
+    }
+  }
+
   // Handle level completion
   void _onLevelComplete() {
-    if (_currentLevel >= _highestUnlockedLevel) {
-      _highestUnlockedLevel = _currentLevel + 1;
-      _saveProgress();
+    // Update level statistics
+    int currentStars = _gameState.starRating;
+    int currentMoves = _gameState.moveCount;
+
+    if (!_levelStats.containsKey(_currentLevel) ||
+        currentMoves < _levelStats[_currentLevel]!.bestMoveCount) {
+      _levelStats[_currentLevel] = LevelStats(
+        bestMoveCount: currentMoves,
+        starRating: currentStars,
+      );
+    } else if (currentStars > _levelStats[_currentLevel]!.starRating) {
+      _levelStats[_currentLevel] = LevelStats(
+        bestMoveCount: _levelStats[_currentLevel]!.bestMoveCount,
+        starRating: currentStars,
+      );
     }
+
+    // Unlock next level if this is highest completed
+    if (_currentLevel >= _highestUnlockedLevel &&
+        _currentLevel < LevelManager.totalLevels) {
+      _highestUnlockedLevel = _currentLevel + 1;
+    }
+
+    _saveProgress();
   }
 
   // Proceed to next level
@@ -158,4 +282,28 @@ class ColorSortGame extends ChangeNotifier {
   void resetLevel() {
     loadLevel(_currentLevel);
   }
+
+  // Set tutorial completed
+  void setTutorialCompleted() {
+    _tutorialCompleted = true;
+    _saveProgress();
+    notifyListeners();
+  }
+
+  // Change theme
+  void setTheme(int themeIndex) {
+    if (themeIndex >= 0 && themeIndex < _themeNames.length) {
+      _selectedTheme = themeIndex;
+      _saveProgress();
+      notifyListeners();
+    }
+  }
+}
+
+/// Stores statistics for a completed level
+class LevelStats {
+  final int bestMoveCount;
+  final int starRating;
+
+  LevelStats({required this.bestMoveCount, required this.starRating});
 }
