@@ -18,6 +18,14 @@ class Move {
   });
 }
 
+/// Tuple-like class to store hint move information
+class TubeMove {
+  final int fromTube;
+  final int toTube;
+
+  const TubeMove(this.fromTube, this.toTube);
+}
+
 /// Represents the current state of the Color Sort game
 class GameState {
   /// All tubes in the current game
@@ -39,7 +47,7 @@ class GameState {
   final bool hintActive;
 
   /// The tubes suggested by the hint (from, to)
-  final (int, int) hintMove;
+  final TubeMove hintMove;
 
   /// Whether the game is complete (all tubes sorted)
   bool get isGameComplete => tubes.every((tube) => tube.isComplete());
@@ -64,8 +72,9 @@ class GameState {
     List<Move>? moveHistory,
     this.parMoveCount = 0,
     this.hintActive = false,
-    this.hintMove = (-1, -1),
-  }) : this.moveHistory = moveHistory ?? [];
+    TubeMove? hintMove,
+  }) : this.moveHistory = moveHistory ?? [],
+       this.hintMove = hintMove ?? const TubeMove(-1, -1);
 
   /// Creates a copy of the current game state with optional changes
   GameState copyWith({
@@ -75,7 +84,7 @@ class GameState {
     List<Move>? moveHistory,
     int? parMoveCount,
     bool? hintActive,
-    (int, int)? hintMove,
+    TubeMove? hintMove,
   }) {
     return GameState(
       tubes:
@@ -91,13 +100,13 @@ class GameState {
   }
 
   /// Activates a hint
-  GameState activateHint((int, int) suggestedMove) {
+  GameState activateHint(TubeMove suggestedMove) {
     return copyWith(hintActive: true, hintMove: suggestedMove);
   }
 
   /// Clears the active hint
   GameState clearHint() {
-    return copyWith(hintActive: false, hintMove: (-1, -1));
+    return copyWith(hintActive: false, hintMove: const TubeMove(-1, -1));
   }
 
   /// Checks if a move from one tube to another is valid
@@ -106,9 +115,11 @@ class GameState {
     if (tubes[fromTube].isEmpty()) return false;
     if (tubes[toTube].isFull()) return false;
 
-    Color fromColor = tubes[fromTube].getTopColor()!;
+    Color? fromColor = tubes[fromTube].getTopColor();
+    if (fromColor == null) return false;
 
-    return tubes[toTube].isEmpty() || tubes[toTube].getTopColor() == fromColor;
+    Color? toColor = tubes[toTube].getTopColor();
+    return tubes[toTube].isEmpty() || toColor == fromColor;
   }
 
   /// Execute a move from one tube to another
@@ -123,7 +134,9 @@ class GameState {
       (i) => tubes[i].copy(),
     );
 
-    Color topColor = newTubes[fromTube].getTopColor()!;
+    Color? topColor = newTubes[fromTube].getTopColor();
+    if (topColor == null) return this;
+
     int blockCount = newTubes[fromTube].getTopBlockCount();
 
     // Limit transfer to available space in target tube
@@ -157,7 +170,7 @@ class GameState {
       moveCount: moveCount + 1,
       moveHistory: newMoveHistory,
       hintActive: false, // Clear any active hint
-      hintMove: (-1, -1),
+      hintMove: const TubeMove(-1, -1),
     );
   }
 
@@ -193,7 +206,7 @@ class GameState {
       moveCount: moveCount - 1,
       moveHistory: newMoveHistory,
       hintActive: false, // Clear any active hint
-      hintMove: (-1, -1),
+      hintMove: const TubeMove(-1, -1),
     );
   }
 }

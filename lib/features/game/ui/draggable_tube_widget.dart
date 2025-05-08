@@ -1,7 +1,9 @@
 // lib/features/game/ui/draggable_tube_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../data/color_tube.dart';
+import '../logic/color_sort_game.dart';
 import 'tube_widget.dart';
 
 class DraggableTubeWidget extends StatelessWidget {
@@ -34,7 +36,14 @@ class DraggableTubeWidget extends StatelessWidget {
   }
 
   Widget _buildDraggableTube(BuildContext context) {
-    Color topColor = tube.getTopColor()!;
+    Color? topColor = tube.getTopColor();
+    if (topColor == null)
+      return TubeWidget(
+        tube: tube,
+        tubeIndex: tubeIndex,
+        isSelected: isSelected,
+        onTap: onTap,
+      );
 
     return Draggable<int>(
       data: tubeIndex,
@@ -47,7 +56,7 @@ class DraggableTubeWidget extends StatelessWidget {
             BoxShadow(
               color: Colors.black.withOpacity(0.3),
               blurRadius: 5,
-              offset: Offset(0, 3),
+              offset: const Offset(0, 3),
             ),
           ],
           gradient: LinearGradient(
@@ -88,11 +97,13 @@ class DraggableTubeWidget extends StatelessWidget {
       onWillAccept: (fromTubeIndex) {
         if (fromTubeIndex == null || fromTubeIndex == tubeIndex) return false;
 
+        // Get the source tube from the provider
+        final fromTube = getTubeAtIndex(context, fromTubeIndex);
+        if (fromTube == null) return false;
+
         // Check if we can move from the source tube to this tube
         return !tube.isFull() &&
-            (tube.isEmpty() ||
-                tube.getTopColor() ==
-                    getTubeAtIndex(fromTubeIndex)?.getTopColor());
+            (tube.isEmpty() || tube.getTopColor() == fromTube.getTopColor());
       },
       onAccept: (fromTubeIndex) {
         onMove(fromTubeIndex, tubeIndex);
@@ -100,8 +111,11 @@ class DraggableTubeWidget extends StatelessWidget {
     );
   }
 
-  // Helper to get tube at index - in a real app this would come from a provider
-  ColorTube? getTubeAtIndex(int index) {
-    return tube; // This is a stub - use your actual tube lookup logic
+  // Helper to get tube at index from the provider
+  ColorTube? getTubeAtIndex(BuildContext context, int index) {
+    final gameProvider = Provider.of<ColorSortGame>(context, listen: false);
+    return index >= 0 && index < gameProvider.tubes.length
+        ? gameProvider.tubes[index]
+        : null;
   }
 }

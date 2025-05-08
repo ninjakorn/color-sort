@@ -54,7 +54,7 @@ class ColorSortGame extends ChangeNotifier {
   List<String> get themeNames => _themeNames;
   bool get canUseHint => _hintsUsed < _maxHintsPerLevel;
   bool get hintActive => _gameState.hintActive;
-  (int, int) get hintMove => _gameState.hintMove;
+  TubeMove get hintMove => _gameState.hintMove;
 
   // Get star rating for current level
   int get starRating => _gameState.starRating;
@@ -145,7 +145,7 @@ class ColorSortGame extends ChangeNotifier {
         _gameState = _gameState.copyWith(
           selectedTubeIndex: index,
           hintActive: false,
-          hintMove: (-1, -1),
+          hintMove: const TubeMove(-1, -1),
         );
         notifyListeners();
       }
@@ -154,7 +154,7 @@ class ColorSortGame extends ChangeNotifier {
       _gameState = _gameState.copyWith(
         selectedTubeIndex: -1,
         hintActive: false,
-        hintMove: (-1, -1),
+        hintMove: const TubeMove(-1, -1),
       );
       notifyListeners();
     } else {
@@ -167,13 +167,13 @@ class ColorSortGame extends ChangeNotifier {
           _gameState = _gameState.copyWith(
             selectedTubeIndex: index,
             hintActive: false,
-            hintMove: (-1, -1),
+            hintMove: const TubeMove(-1, -1),
           );
         } else {
           _gameState = _gameState.copyWith(
             selectedTubeIndex: -1,
             hintActive: false,
-            hintMove: (-1, -1),
+            hintMove: const TubeMove(-1, -1),
           );
         }
         notifyListeners();
@@ -200,7 +200,7 @@ class ColorSortGame extends ChangeNotifier {
       }
 
       // Short delay to show animation
-      Future.delayed(Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 300), () {
         _isAnimating = false;
         notifyListeners();
       });
@@ -216,9 +216,9 @@ class ColorSortGame extends ChangeNotifier {
     }
 
     // Find the best move
-    (int fromTube, int toTube) bestMove = HintSystem.findBestMove(_gameState);
+    TubeMove bestMove = HintSystem.findBestMove(_gameState);
 
-    if (bestMove.$1 != -1 && bestMove.$2 != -1) {
+    if (bestMove.fromTube != -1 && bestMove.toTube != -1) {
       _gameState = _gameState.activateHint(bestMove);
       _hintsUsed++;
       notifyListeners();
@@ -272,7 +272,7 @@ class ColorSortGame extends ChangeNotifier {
     _gameState = _gameState.undoLastMove();
 
     // Short delay to show animation
-    Future.delayed(Duration(milliseconds: 300), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       _isAnimating = false;
       notifyListeners();
     });

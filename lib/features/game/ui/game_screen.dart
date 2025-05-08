@@ -3,12 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:math'; // Added missing import
 import '../logic/color_sort_game.dart';
 import '../logic/level_manager.dart';
 import '../../home/ui/theme_config.dart';
-import 'enhanced_tube_widget.dart';
-import 'level_complete_dialog.dart';
-import 'tutorial_overlay.dart';
+import 'animated_tube_widget.dart'; // Updated to use the renamed widget
+import 'level_complete_dialog.dart'; // Updated import
+import 'tutorial_overlay.dart'; // Updated import
 
 class GameScreen extends StatefulWidget {
   const GameScreen({Key? key}) : super(key: key);
@@ -91,7 +92,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         title: Text(
           'Level ${game.currentLevel} - ${LevelManager.getDifficultyLabel(game.currentLevel)}',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: themeConfig.primaryColor.withOpacity(0.7),
         elevation: 0,
@@ -289,7 +293,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   int tubeIndex = startIndex + index;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                    child: EnhancedTubeWidget(
+                    child: AnimatedTubeWidget(
+                      // Updated to use the renamed widget
                       tube: game.tubes[tubeIndex],
                       tubeIndex: tubeIndex,
                       isSelected: game.selectedTubeIndex == tubeIndex,
@@ -302,8 +307,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       isAnimating: game.isAnimating,
                       isHinted:
                           game.hintActive &&
-                          (game.hintMove.$1 == tubeIndex ||
-                              game.hintMove.$2 == tubeIndex),
+                          (game.hintMove.fromTube == tubeIndex ||
+                              game.hintMove.toTube == tubeIndex),
                       hintAnimation: _hintController,
                       useGlassEffect: themeConfig.useGlassEffect,
                       themeColors: themeConfig.tubeColors,
@@ -323,7 +328,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               return Opacity(
                 opacity: _completionController.value,
                 child: Container(
-                  decoration: BoxDecoration(color: Colors.transparent),
+                  decoration: const BoxDecoration(color: Colors.transparent),
                   child: CustomPaint(
                     painter: ConfettiPainter(
                       progress: _completionController.value,
@@ -377,7 +382,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
             child: Text(
               '${game.hintsRemaining}',
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
@@ -486,7 +491,7 @@ class ConfettiPainter extends CustomPainter {
       final particleSize = 5.0 + random.nextDouble() * 10.0;
 
       // Rotation angle
-      final angle = random.nextDouble() * 2 * 3.14159;
+      final angle = random.nextDouble() * 2 * pi;
 
       // Draw confetti particle (rectangle or circle)
       if (random.nextBool()) {
